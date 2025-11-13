@@ -1,88 +1,104 @@
 import streamlit as st
 import pandas as pd
-import joblib
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, mean_squared_error
-from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.metrics import accuracy_score, mean_squared_error
+import shap
+from lime.lime_tabular import LimeTabularExplainer
+import numpy as np
 
 
 def executar_automl(df, target):
 
-    st.header("🤖 AutoML — Treinamento Automático")
+    st.write("🔍 Treinando modelo automaticamente...")
 
+    # Separar X e y
     X = df.drop(columns=[target])
     y = df[target]
 
-    # Codificação de categorias
-    if y.dtype == "object":
-        y = LabelEncoder().fit_transform(y)
+    # Detectar automaticamente: classificação ou regressão
+    problema = "classificacao" if y.dtype == "object" else "regressao"
 
-    X = pd.get_dummies(X)
-
+    # Dividir dataset
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+        X, y, test_size=0.25, random_state=42
     )
 
-    # Detectar problema
-    problema_regressao = len(pd.unique(y)) > 20
-
-    st.info(f"🔍 Tipo de problema detectado: {'Regressão' if problema_regressao else 'Classificação'}")
-
-    resultados = {}
-
-    if not problema_regressao:
-
-        modelos = {
-            "Logistic Regression": LogisticRegression(max_iter=500),
-            "Decision Tree": DecisionTreeClassifier(),
-            "Random Forest": RandomForestClassifier()
-        }
-
-        for nome, modelo in modelos.items():
-            modelo.fit(X_train, y_train)
-            pred = modelo.predict(X_test)
-            acc = accuracy_score(y_test, pred)
-            f1 = f1_score(y_test, pred, average="weighted")
-
-            resultados[nome] = acc
-
-            st.write(f"### Modelo: {nome}")
-            st.write(f"Accuracy: **{acc:.4f}**")
-            st.write(f"F1-score: **{f1:.4f}**")
-            st.write("---")
-
+    # Escolher modelo automaticamente
+    if problema == "classificacao":
+        modelo = RandomForestClassifier(n_estimators=500, random_state=42)
     else:
+        modelo = RandomForestRegressor(n_estimators=500, random_state=42)
 
-        modelos = {
-            "Decision Tree Regressor": DecisionTreeRegressor(),
-            "Random Forest Regressor": RandomForestRegressor()
-        }
+    modelo.fit(X_train, y_train)
 
-        for nome, modelo in modelos.items():
-            modelo.fit(X_train, y_train)
-            pred = modelo.predict(X_test)
-            mse = mean_squared_error(y_test, pred)
+    # --------------------
+    # 🔥 Avaliação
+    # --------------------
+    if problema == "classificacao":
+        pred = modelo.predict(X_test)
+        score = accuracy_score(y_test, pred)
+        st.success(f"📌 Acurácia: **{round(score*100,2)}%**")
+    else:
+        pred = modelo.predict(X_test)
+        rmse = np.sqrt(mean_squared_error(y_test, pred))
+        st.success(f"📌 RMSE: **{round(rmse,4)}**")
 
-            resultados[nome] = -mse
+    st.divider()
+    st.subheader("🧠 Interpretabilidade — SHAP e LIME")
 
-            st.write(f"### Modelo: {nome}")
-            st.write(f"MSE: **{mse:.4f}**")
-            st.write("---")
+    # --------------------
+    # 📌 SHAP EXPLAINER
+    # --------------------
+    st.markdown("### 🌈 SHAP — Importância das Features")
 
-    melhor_modelo = max(resultados, key=resultados.get)
+    try:
+        explainer = shap.TreeExplainer(modelo)
+        shap_values = explainer.shap_values(X_train)
 
-    st.success(f"🏆 Melhor modelo encontrado: **{melhor_modelo}**")
+        st.write("🔍 Importância Global das Features")
 
-    modelo_final = modelos[melhor_modelo]
-    joblib.dump(modelo_final, f"models/{melhor_modelo}.pkl")
+        fig = shap.summary_plot(shap_values, X_train, plot_type="bar", show=False)
+        st.pyplot(fig)
 
-    st.download_button(
-        "📥 Baixar Modelo Treinado",
-        data=open(f"models/{melhor_modelo}.pkl", "rb").read(),
-        file_name=f"{melhor_modelo}.pkl"
-    )
+        st.write("🎨 Distribuição do impacto das features")
+        fig2 = shap.summary_plot(shap_values, X_train, show=False)
+        st.pyplot(fig2)
 
-    st.success("✔ AutoML concluído!")
+    except Exception as e:
+        st.warning("⚠ SHAP não pôde ser gerado para este modelo ou dataset.")
+        st.text(str(e))
+
+    st.divider()
+
+    # --------------------
+    # 📌 LIME EXPLAINER
+    # --------------------
+    st.markdown("### 🍋 LIME — Explicação Local (um registro)")
+
+    try:
+        lime_explainer = LimeTabularExplainer(
+            training_data=np.array(X_train),
+            feature_names=X_train.columns,
+            class_names=np.unique(y_train).astype(str),
+            mode="classification" if problema == "classificacao" else "regression"
+        )
+
+        st.info("Selecione uma linha do dataset para explicar:")
+
+        linha = st.number_input("ID da linha (0 até tamanho do dataset)", min_value=0, max_value=len(df)-1)
+
+        instancia = X.iloc[linha]
+
+        if st.button("📌 Gerar Explicação LIME"):
+            exp = lime_explainer.explain_instance(
+                data_row=instancia.values,
+                predict_fn=modelo.predict_proba if problema=="classificacao" else modelo.predict
+            )
+
+            st.write("🔎 Explicação Local (LIME):")
+            st.components.v1.html(exp.as_html(), height=600)
+
+    except Exception as e:
+        st.warning("⚠ LIME não pôde ser gerado.")
+        st.text(str(e))
