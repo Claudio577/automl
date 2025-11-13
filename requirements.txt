@@ -8,3 +8,4 @@ joblib
 pillow
 shap
 lime
+plotly
