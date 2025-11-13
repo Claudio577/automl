@@ -3,7 +3,6 @@ import pandas as pd
 from autoeda import gerar_relatorio_eda
 from training_engine import executar_automl
 
-
 st.set_page_config(
     page_title="AutoML + Auto-EDA — Orion IA",
     layout="wide",
@@ -13,6 +12,9 @@ st.set_page_config(
 st.title("🤖 Plataforma AutoML + Auto-EDA")
 st.markdown("Sistema automático de análise e modelagem desenvolvido por **Orion IA**.")
 
+# ============================
+# UPLOAD DO DATASET
+# ============================
 uploaded_file = st.file_uploader("📂 Envie seu arquivo .CSV", type=['csv'])
 
 if uploaded_file:
@@ -20,11 +22,14 @@ if uploaded_file:
     st.success("✔ Arquivo carregado com sucesso!")
     st.dataframe(df.head())
 
-    st.subheader("🔎 Selecionar variável alvo")
+    st.subheader("🎯 Selecionar coluna alvo (variável que queremos prever)")
     target = st.selectbox("Escolha a coluna alvo:", df.columns)
 
-    if st.button("📊 Gerar Auto-EDA"):
+    # Botão Auto-EDA
+    if st.button("📊 Gerar Relatório Auto-EDA"):
         gerar_relatorio_eda(df)
 
+    # Botão AutoML
     if st.button("🤖 Executar AutoML"):
         executar_automl(df, target)
+
