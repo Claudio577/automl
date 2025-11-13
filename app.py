@@ -178,6 +178,7 @@ uploaded_file = st.file_uploader("📂 Envie seu arquivo .CSV", type=['csv'])
 if uploaded_file:
 
     df = ler_csv_inteligente(uploaded_file)
+    df = limpar_header(df)
 
     # Remover colunas Unnamed
     df = df.loc[:, ~df.columns.str.contains("Unnamed")]
