@@ -11,7 +11,7 @@ from data_cleaning import tratar_faltantes
 # ==========================================
 def ler_csv_inteligente(uploaded_file):
 
-    # --- 1) Tentativa normal ---
+    # Tentar leitura normal
     try:
         df = pd.read_csv(uploaded_file)
         if df.shape[1] > 1:
@@ -19,7 +19,7 @@ def ler_csv_inteligente(uploaded_file):
     except:
         pass
 
-    # --- 2) Tentar com vírgula ---
+    # Tentar com vírgula
     uploaded_file.seek(0)
     try:
         df = pd.read_csv(uploaded_file, sep=",", engine="python")
@@ -27,6 +27,46 @@ def ler_csv_inteligente(uploaded_file):
             return df
     except:
         pass
+
+    # Tentar com ponto e vírgula
+    uploaded_file.seek(0)
+    try:
+        df = pd.read_csv(uploaded_file, sep=";", engine="python")
+        if df.shape[1] > 1:
+            return df
+    except:
+        pass
+
+    # ============================
+    # REPARAÇÃO DE CSV TOTALMENTE QUEBRADO
+    # ============================
+    uploaded_file.seek(0)
+    linhas_raw = uploaded_file.read().decode("utf-8").splitlines()
+
+    # Separar por vírgula sempre
+    linhas = [linha.split(",") for linha in linhas_raw]
+
+    # Descobrir o maior número de colunas
+    maior_tamanho = max(len(l) for l in linhas)
+
+    # Preencher linhas menores com vazio
+    linhas_corrigidas = []
+    for linha in linhas:
+        if len(linha) < maior_tamanho:
+            linha += [""] * (maior_tamanho - len(linha))
+        linhas_corrigidas.append(linha)
+
+    # Criar header artificial se necessário
+    if not linhas_corrigidas[0][0].isalpha():
+        colunas = [f"coluna_{i}" for i in range(maior_tamanho)]
+    else:
+        colunas = linhas_corrigidas[0]
+        linhas_corrigidas = linhas_corrigidas[1:]
+
+    df = pd.DataFrame(linhas_corrigidas, columns=colunas)
+
+    return df
+
 
     # --- 3) Tentar com ponto e vírgula ---
     uploaded_file.seek(0)
