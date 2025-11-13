@@ -159,79 +159,100 @@ elif pagina == "🤖 Insights IA":
                 st.write("✔", item)
 
 # ==========================================================
-# 📈 DASHBOARD INTERATIVO
+# 📈 DASHBOARD INTERATIVO — VERSÃO PRO
 # ==========================================================
 elif pagina == "📈 Dashboard Interativo":
-    st.header("📈 Dashboard Interativo Orion IA")
+    st.header("📈 Dashboard Interativo (Versão Avançada)")
 
     if "df" not in st.session_state:
         st.warning("⚠ Primeiro carregue os dados na aba 'Upload & Limpeza'.")
     else:
         df = st.session_state["df"]
 
-        st.markdown("### 🔧 Selecione os parâmetros para gerar gráficos dinâmicos")
+        import plotly.express as px
 
-        # -----------------------------------------------------
-        # Seleção de coluna principal
-        # -----------------------------------------------------
-        coluna = st.selectbox("📌 Escolha uma coluna para visualizar:", df.columns)
+        # -----------------------------
+        # Seleção da coluna alvo
+        # -----------------------------
+        st.markdown("### 🔧 Selecione a coluna principal")
+        coluna = st.selectbox("Coluna para analisar:", df.columns)
 
         tipo = df[coluna].dtype
 
-        # -----------------------------------------------------
-        # Filtros dinâmicos por tipo de dados
-        # -----------------------------------------------------
-        st.markdown("### 🔍 Filtros")
-        
+        # -----------------------------
+        # Layout do dashboard (2 colunas)
+        # -----------------------------
+        col1, col2 = st.columns(2)
+
+        # ======================================================
+        # NUMÉRICAS
+        # ======================================================
         if pd.api.types.is_numeric_dtype(df[coluna]):
-            minimo, maximo = float(df[coluna].min()), float(df[coluna].max())
-            faixa = st.slider("Selecione o intervalo:", minimo, maximo, (minimo, maximo))
-            df_plot = df[df[coluna].between(faixa[0], faixa[1])]
+            st.markdown("## 🔢 Dashboard para variáveis numéricas")
+
+            # ---- COLUNA 1: Histograma ----
+            with col1:
+                st.markdown("### 📊 Histograma")
+                fig = px.histogram(df, x=coluna)
+                st.plotly_chart(fig, use_container_width=True)
+
+            # ---- COLUNA 2: Boxplot ----
+            with col2:
+                st.markdown("### 📉 Boxplot")
+                fig2 = px.box(df, y=coluna)
+                st.plotly_chart(fig2, use_container_width=True)
+
+            # ---- COLUNA 1: Relação com outra numérica ----
+            outras_num = df.select_dtypes(include=['int64', 'float64']).columns.drop(coluna)
+            if len(outras_num) > 0:
+                with col1:
+                    outra = st.selectbox("📈 Comparar com:", outras_num)
+                    fig3 = px.scatter(df, x=coluna, y=outra, trendline="ols")
+                    st.markdown("### 📈 Relação com outra variável")
+                    st.plotly_chart(fig3, use_container_width=True)
+
+            # ---- COLUNA 2: Heatmap de correlação ----
+            with col2:
+                st.markdown("### 🔥 Correlação")
+                corr = df.select_dtypes(include=['int64', 'float64']).corr()
+                fig4 = px.imshow(corr, text_auto=True, color_continuous_scale="RdBu")
+                st.plotly_chart(fig4, use_container_width=True)
+
+        # ======================================================
+        # CATEGÓRICAS
+        # ======================================================
         else:
-            valores = st.multiselect("Filtrar valores únicos:", df[coluna].unique(), default=df[coluna].unique())
-            df_plot = df[df[coluna].isin(valores)]
+            st.markdown("## 🧩 Dashboard para variáveis categóricas")
 
-        st.markdown("---")
+            # ---- COLUNA 1: Contagem ----
+            with col1:
+                st.markdown("### 📊 Frequência")
+                contagem = df[coluna].value_counts().reset_index()
+                contagem.columns = [coluna, "Quantidade"]
+                fig = px.bar(contagem, x=coluna, y="Quantidade")
+                st.plotly_chart(fig, use_container_width=True)
 
-        # -----------------------------------------------------
-        # Gráficos automáticos
-        # -----------------------------------------------------
-        st.subheader("📊 Visualizações")
+            # ---- COLUNA 2: Proporção ----
+            with col2:
+                st.markdown("### 🧮 Proporção (%)")
+                contagem["Percentual"] = (contagem["Quantidade"] / contagem["Quantidade"].sum()) * 100
+                fig2 = px.pie(contagem, names=coluna, values="Percentual")
+                st.plotly_chart(fig2, use_container_width=True)
 
-        import plotly.express as px
+            # ---- COLUNA 1: Cruzamento com outra coluna ----
+            outras_cols = df.columns.drop(coluna)
 
-        # Numéricas
-        if pd.api.types.is_numeric_dtype(df[coluna]):
+            with col1:
+                outra = st.selectbox("📌 Cruzar com:", outras_cols)
+                crosstab = df.groupby([coluna, outra]).size().reset_index(name="Contagem")
+                fig3 = px.bar(crosstab, x=coluna, y="Contagem", color=outra, barmode="group")
+                st.markdown("### 🧩 Distribuição Cruzada")
+                st.plotly_chart(fig3, use_container_width=True)
 
-            # Histograma
-            fig = px.histogram(df_plot, x=coluna)
-            st.plotly_chart(fig, use_container_width=True)
-
-            # Boxplot
-            fig2 = px.box(df_plot, y=coluna)
-            st.plotly_chart(fig2, use_container_width=True)
-
-        # Categóricas
-        else:
-            contagem = df_plot[coluna].value_counts().reset_index()
-            contagem.columns = [coluna, "Quantidade"]
-
-            fig3 = px.bar(contagem, x=coluna, y="Quantidade")
-            st.plotly_chart(fig3, use_container_width=True)
-
-        # -----------------------------------------------------
-        # Correlação (só numéricas)
-        # -----------------------------------------------------
-        st.markdown("---")
-        st.subheader("📉 Correlação entre Variáveis Numéricas")
-
-        num_df = df_plot.select_dtypes(include=["int64", "float64"])
-
-        if num_df.shape[1] >= 2:
-            fig_corr = px.imshow(num_df.corr(), text_auto=True, color_continuous_scale="RdBu")
-            st.plotly_chart(fig_corr, use_container_width=True)
-        else:
-            st.info("📘 É necessário pelo menos duas colunas numéricas para exibir correlação.")
+            # ---- COLUNA 2: Tabela de frequência ----
+            with col2:
+                st.markdown("### 📋 Tabela de Frequência")
+                st.dataframe(contagem)
 
 # ==========================================================
 # 📤 EXPORTAÇÃO
