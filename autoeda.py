@@ -3,75 +3,53 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
 def gerar_relatorio_eda(df):
 
     st.header("📊 Relatório Automático — Auto-EDA")
 
-    # ---------- 1. Estatísticas gerais ----------
+    # ---------- 1. Estatísticas ----------
     st.subheader("📌 Estatísticas Descritivas")
-    buffer = df.describe(include="all").T
+    st.dataframe(df.describe(include="all").T)
 
-    traducao = {
-        "count": "Contagem",
-        "mean": "Média",
-        "std": "Desvio Padrão",
-        "min": "Mínimo",
-        "25%": "25%",
-        "50%": "Mediana (50%)",
-        "75%": "75%",
-        "max": "Máximo"
-    }
-
-    buffer = buffer.rename(columns=traducao)
-    st.dataframe(buffer)
-
-    # ---------- 2. Valores faltantes ----------
+    # ---------- 2. Missing ----------
     st.subheader("⚠ Valores Faltantes")
-    missing = df.isnull().sum().rename("Total de Faltantes")
-    st.dataframe(missing)
+    st.dataframe(df.isnull().sum())
 
-    # ---------- 3. Distribuição das variáveis ----------
+    # ---------- 3. Distribuições ----------
     st.subheader("📈 Distribuição das Variáveis (Numéricas)")
-    for coluna in df.select_dtypes(include=['int64','float64']).columns:
+    colunas_num = df.select_dtypes(include=['int64', 'float64']).columns
+
+    for coluna in colunas_num:
         fig, ax = plt.subplots()
         sns.histplot(df[coluna], kde=True, ax=ax)
-        ax.set_title(f"Distribuição de {coluna}")
         st.pyplot(fig)
 
-    # ---------- 4. Matriz de Correlação ----------
-    st.subheader("🔗 Matriz de Correlação")
-
-    df_numerico = df.select_dtypes(include=['int64', 'float64'])
-
-    if df_numerico.shape[1] >= 2:
-        fig, ax = plt.subplots(figsize=(8,6))
-        sns.heatmap(df_numerico.corr(), annot=True, cmap="Blues", ax=ax)
-        ax.set_title("Correlação entre Variáveis Numéricas")
+    # ---------- 4. Correlação ----------
+    if len(colunas_num) >= 2:
+        st.subheader("🔗 Matriz de Correlação")
+        fig, ax = plt.subplots(figsize=(8, 6))
+        sns.heatmap(df[colunas_num].corr(), annot=True, cmap="Blues", ax=ax)
         st.pyplot(fig)
     else:
         st.info("Não existem colunas numéricas suficientes para gerar matriz de correlação.")
 
-    # ---------- 5. Insights Automáticos ----------
+    # ---------- 5. Insights ----------
     st.subheader("💡 Insights Automáticos (em Português)")
     insights = []
 
     for col in df.columns:
-        # Valores faltantes
-        faltantes = df[col].isnull().sum()
-        if faltantes > 0:
-            insights.append(f"• A coluna **{col}** possui {faltantes} valores faltantes.")
 
-        # Assimetria (skew)
-        if df[col].dtype in ["int64", "float64"]:
-            skew = df[col].skew()
-            if skew > 1:
-                insights.append(f"• A coluna **{col}** é altamente assimétrica (cauda longa).")
+        if df[col].isnull().sum() > 0:
+            insights.append(f"A coluna **{col}** possui {df[col].isnull().sum()} valores faltantes.")
 
-    if not insights:
+        if df[col].dtype in ["int64", "float64"] and df[col].skew() > 1:
+            insights.append(f"A coluna **{col}** é altamente assimétrica (skew > 1).")
+
+    if len(insights) == 0:
         st.success("Nenhum problema relevante encontrado nos dados! 🎉")
     else:
         for item in insights:
-            st.write(item)
+            st.write("• " + item)
 
     st.success("✅ Auto-EDA concluído!")
-
