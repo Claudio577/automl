@@ -5,6 +5,7 @@ import csv
 from autoeda import gerar_relatorio_eda
 from training_engine import executar_automl
 from data_cleaning import autofix_csv
+from insights_engine import gerar_insights  # NOVO
 
 
 # ==========================================================
@@ -53,17 +54,14 @@ def ler_csv_inteligente(uploaded_file):
     if len(linhas_raw) == 0:
         return pd.DataFrame()
 
-    # 3) SE CSV VEIO TODO EM UMA COLUNA → RECONSTRUIR
-    if "," in linhas_raw[0] and ";" not in linhas_raw[0] and linhas_raw[0].count(",") > 1:
-        linhas = [linha.split(",") for linha in linhas_raw]
-    else:
-        linhas = [linha.split(",") for linha in linhas_raw]
+    # 3) SPLIT POR VÍRGULA
+    linhas = [linha.split(",") for linha in linhas_raw]
 
     # 4) NORMALIZAR QUANTIDADE DE COLUNAS
     max_cols = max(len(l) for l in linhas)
     linhas_norm = [l + [""] * (max_cols - len(l)) for l in linhas]
 
-    # 5) DEFINIR HEADER
+    # 5) HEADER
     header = [h.replace('"', '').replace("'", "").strip() for h in linhas_norm[0]]
 
     corpo = linhas_norm[1:]
@@ -125,6 +123,17 @@ if uploaded_file:
     # ==========================================================
     if st.button("📊 Gerar Relatório Auto-EDA"):
         gerar_relatorio_eda(df_tratado)
+
+
+    # ==========================================================
+    # 🔍 INSIGHTS INTELIGENTES ORION IA (NOVO)
+    # ==========================================================
+    if st.button("🔍 Insights Inteligentes Orion IA"):
+        st.subheader("🔍 Insights Gerados Automaticamente")
+        insights = gerar_insights(df_tratado)
+
+        for item in insights:
+            st.write("✔", item)
 
 
     # ==========================================================
