@@ -3,7 +3,6 @@ import pandas as pd
 
 from autoeda import gerar_relatorio_eda
 from training_engine import executar_automl
-from data_cleaning import tratar_faltantes
 
 def limpar_header(df):
     colunas_corrigidas = []
@@ -197,8 +196,6 @@ if uploaded_file:
     if st.button("🤖 Executar AutoML"):
 
         st.subheader("🧼 Tratamento Automático de Dados (Nível 4)")
-
-        df_tratado, relatorio = tratar_faltantes(df)
 
         for item in relatorio:
             st.write("✔ " + item)
