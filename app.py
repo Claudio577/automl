@@ -70,12 +70,12 @@ def ler_csv_inteligente(uploaded_file):
 # 🌎 Configuração da Página
 # ==========================================================
 st.set_page_config(
-    page_title="Orion IA — Data Intelligence",
+    page_title="Data Intelligence",
     layout="wide",
-    page_icon="🤖"
+    page_icon="📊"
 )
 
-st.title("🤖 Orion IA — Plataforma de Data Intelligence")
+st.title("📊 Plataforma de Análise de Dados")
 
 
 # ==========================================================
@@ -94,7 +94,6 @@ pagina = st.sidebar.selectbox(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("Desenvolvido com ❤️ por Orion IA")
 
 
 # ==========================================================
@@ -143,7 +142,7 @@ elif pagina == "📊 Auto-EDA":
 # 🤖 INSIGHTS IA
 # ==========================================================
 elif pagina == "🤖 Insights IA":
-    st.header("🤖 Insights Inteligentes com IA")
+    st.header("🤖 Insights Inteligentes")
 
     if "df" not in st.session_state:
         st.warning("⚠ Primeiro carregue os dados na aba 'Upload & Limpeza'.")
@@ -158,11 +157,12 @@ elif pagina == "🤖 Insights IA":
             for item in insights:
                 st.write("✔", item)
 
+
 # ==========================================================
 # 📈 DASHBOARD INTERATIVO — VERSÃO PRO
 # ==========================================================
 elif pagina == "📈 Dashboard Interativo":
-    st.header("📈 Dashboard Interativo (Versão Avançada)")
+    st.header("📈 Dashboard Interativo")
 
     if "df" not in st.session_state:
         st.warning("⚠ Primeiro carregue os dados na aba 'Upload & Limpeza'.")
@@ -253,6 +253,7 @@ elif pagina == "📈 Dashboard Interativo":
             with col2:
                 st.markdown("### 📋 Tabela de Frequência")
                 st.dataframe(contagem)
+
 
 # ==========================================================
 # 📤 EXPORTAÇÃO
