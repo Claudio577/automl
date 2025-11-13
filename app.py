@@ -18,7 +18,7 @@ st.markdown("Sistema automático de análise e modelagem desenvolvido por **Orio
 uploaded_file = st.file_uploader("📂 Envie seu arquivo .CSV", type=['csv'])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file, sep=None, engine="python")
+    df = pd.read_csv(uploaded_file, sep=";")
     st.success("✔ Arquivo carregado com sucesso!")
     st.dataframe(df.head())
 
