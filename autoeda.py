@@ -1,81 +1,92 @@
+import streamlit as st
 import pandas as pd
-import numpy as np
-import re
-
-def limpar_celulas(df):
-
-    df = df.copy()
-    
-    for col in df.columns:
-        if df[col].dtype == "object":
-
-            # 1) Remover aspas
-            df[col] = df[col].astype(str).str.replace('"', '', regex=False)
-            df[col] = df[col].astype(str).str.replace("'", '', regex=False)
-
-            # 2) Remover espaços
-            df[col] = df[col].str.strip()
-
-            # 3) Converter strings vazias em NaN
-            df[col] = df[col].replace("", np.nan)
-
-            # 4) Remover duplicação de espaços
-            df[col] = df[col].apply(lambda x: re.sub(r'\s+', ' ', x) if isinstance(x, str) else x)
-
-    return df
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
-def ajustar_tipos(df):
+# ==========================================================
+# 📊 FUNÇÃO PRINCIPAL — GERA RELATÓRIO DE ANÁLISE EXPLORATÓRIA
+# ==========================================================
+def gerar_relatorio_eda(df):
 
-    df = df.copy()
+    st.header("📊 Relatório Automático de Análise Exploratória (Auto-EDA)")
 
-    for col in df.columns:
-        serie = df[col]
+    # ==========================================================
+    # 1) Informações gerais
+    # ==========================================================
+    st.subheader("📌 Informações Gerais do Dataset")
+    st.write(f"**Número de linhas:** {df.shape[0]}")
+    st.write(f"**Número de colunas:** {df.shape[1]}")
+    st.write("**Prévia dos dados:**")
+    st.dataframe(df.head())
 
-        # TENTAR converter números — mas só quando fizer sentido
-        try:
-            # Se mais de 80% são números, converte
-            pct_num = pd.to_numeric(serie, errors="coerce").notna().mean()
+    # ==========================================================
+    # 2) Tipos das variáveis
+    # ==========================================================
+    st.subheader("🧬 Tipos de Dados")
+    tipos = pd.DataFrame(df.dtypes, columns=["Tipo"])
+    st.dataframe(tipos)
 
-            if pct_num > 0.8:
-                df[col] = pd.to_numeric(serie, errors="coerce")
-                continue
+    # ==========================================================
+    # 3) Valores ausentes
+    # ==========================================================
+    st.subheader("⚠ Valores Ausentes")
+    faltantes = df.isna().sum()
+    st.write(faltantes)
 
-        except:
-            pass
+    # Gráfico dos faltantes
+    if faltantes.sum() > 0:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        faltantes.plot(kind='bar', ax=ax)
+        ax.set_title("Valores Ausentes por Coluna")
+        st.pyplot(fig)
 
-        # TENTAR converter datas — mas só quando fizer sentido
-        try:
-            pct_date = pd.to_datetime(serie, errors="coerce").notna().mean()
+    # ==========================================================
+    # 4) Estatísticas descritivas
+    # ==========================================================
+    st.subheader("📈 Estatísticas Descritivas (Numéricas)")
+    st.dataframe(df.describe(include='number'))
 
-            if pct_date > 0.8:
-                df[col] = pd.to_datetime(serie, errors="coerce")
-                continue
+    st.subheader("📚 Estatísticas (Categorias)")
+    st.dataframe(df.describe(include='object'))
 
-        except:
-            pass
+    # ==========================================================
+    # 5) Distribuição de variáveis numéricas
+    # ==========================================================
+    st.subheader("📊 Distribuição das Variáveis Numéricas")
 
-        # Caso contrário → mantém como texto
-        df[col] = serie
+    for col in df.select_dtypes(include=['int64', 'float64']).columns:
+        fig, ax = plt.subplots()
+        sns.histplot(df[col].dropna(), kde=True, ax=ax)
+        ax.set_title(f"Distribuição de {col}")
+        st.pyplot(fig)
 
-    return df
+    # ==========================================================
+    # 6) Distribuição de variáveis categóricas
+    # ==========================================================
+    st.subheader("🏷 Distribuição das Variáveis Categóricas")
 
+    for col in df.select_dtypes(include=['object']).columns:
+        fig, ax = plt.subplots()
+        df[col].value_counts().head(20).plot(kind='bar', ax=ax)
+        ax.set_title(f"Frequência das Categorias — {col}")
+        st.pyplot(fig)
 
-def autofix_csv(df):
+    # ==========================================================
+    # 7) Correlação entre variáveis numéricas
+    # ==========================================================
+    st.subheader("🔗 Correlação Entre Variáveis Numéricas")
 
-    df = df.copy()
+    num_df = df.select_dtypes(include=['int64', 'float64'])
 
-    # Etapa 1: limpeza textual
-    df = limpar_celulas(df)
+    if num_df.shape[1] > 1:
+        corr = num_df.corr()
 
-    # Etapa 2: conversões automáticas somente quando seguras
-    df = ajustar_tipos(df)
+        fig, ax = plt.subplots(figsize=(8, 5))
+        sns.heatmap(corr, annot=True, cmap='Blues', ax=ax)
+        ax.set_title("Mapa de Correlação")
+        st.pyplot(fig)
+    else:
+        st.info("Poucas variáveis numéricas para gerar mapa de correlação.")
 
-    # Relatório simples
-    relatorio = [
-        "Colunas limpas (remoção de aspas e espaços)",
-        "Tipos ajustados automaticamente quando seguro",
-        "Valores vazios padronizados como NaN"
-    ]
-
-    return df, relatorio
+    st.success("🎉 Relatório Auto-EDA gerado com sucesso!")
