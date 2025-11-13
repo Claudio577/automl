@@ -13,36 +13,25 @@ def executar_automl(df, target):
 
     st.header("🤖 AutoML — Treinamento Automático")
 
-    # ----------------------------
-    # Preparar dados
-    # ----------------------------
     X = df.drop(columns=[target])
     y = df[target]
 
-    # Codificar se for categoria
     if y.dtype == "object":
         le = LabelEncoder()
         y = le.fit_transform(y)
 
-    # Codifica também colunas categóricas do X
     X = pd.get_dummies(X)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
 
-    # ----------------------------
-    # Detectar tipo de problema
-    # ----------------------------
     problema_regressao = len(pd.unique(y)) > 20
 
     st.info(f"🔍 Problema detectado: {'Regressão' if problema_regressao else 'Classificação'}")
 
     resultados = {}
 
-    # ----------------------------
-    # MODELOS PARA CLASSIFICAÇÃO
-    ----------------------------
     if not problema_regressao:
         modelos = {
             "Logistic Regression": LogisticRegression(max_iter=500),
@@ -62,9 +51,6 @@ def executar_automl(df, target):
             st.write(f"F1-score: **{f1:.4f}**")
             st.write("---")
 
-    # ----------------------------
-    # MODELOS PARA REGRESSÃO
-    ----------------------------
     else:
         modelos = {
             "Decision Tree Regressor": DecisionTreeRegressor(),
@@ -75,15 +61,12 @@ def executar_automl(df, target):
             modelo.fit(X_train, y_train)
             pred = modelo.predict(X_test)
             mse = mean_squared_error(y_test, pred)
-            resultados[nome] = -mse  # menor MSE → melhor
+            resultados[nome] = -mse
 
             st.write(f"### Modelo: {nome}")
             st.write(f"MSE: **{mse:.4f}**")
             st.write("---")
 
-    # ----------------------------
-    # Escolher melhor modelo
-    # ----------------------------
     melhor_modelo = max(resultados, key=resultados.get)
 
     st.success(f"🏆 Melhor modelo encontrado: **{melhor_modelo}**")
