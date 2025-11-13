@@ -5,37 +5,79 @@ from autoeda import gerar_relatorio_eda
 from training_engine import executar_automl
 from data_cleaning import tratar_faltantes
 
-
-# ==========================================
-# 📌 FUNÇÃO PARA LER CSV DE FORMA INTELIGENTE
-# ==========================================
 def ler_csv_inteligente(uploaded_file):
 
-    # Tentar leitura normal
+    # ==========================================================
+    # 1) TENTATIVA NORMAL
+    # ==========================================================
     try:
+        uploaded_file.seek(0)
         df = pd.read_csv(uploaded_file)
         if df.shape[1] > 1:
             return df
     except:
         pass
 
-    # Tentar com vírgula
+    # ==========================================================
+    # 2) DETECTAR DELIMITADOR AUTOMATICAMENTE
+    # ==========================================================
     uploaded_file.seek(0)
+    sample = uploaded_file.read(2048).decode("utf-8", errors="ignore")
+    uploaded_file.seek(0)
+
     try:
-        df = pd.read_csv(uploaded_file, sep=",", engine="python")
+        dialect = csv.Sniffer().sniff(sample)
+        sep = dialect.delimiter
+        df = pd.read_csv(uploaded_file, sep=sep)
+
         if df.shape[1] > 1:
             return df
+
     except:
         pass
 
-    # Tentar com ponto e vírgula
+    # ==========================================================
+    # 3) TENTAR COM , ; | \t
+    # ==========================================================
+    for sep in [",", ";", "|", "\t"]:
+        try:
+            uploaded_file.seek(0)
+            df = pd.read_csv(uploaded_file, sep=sep, engine="python")
+            if df.shape[1] > 1:
+                return df
+        except:
+            continue
+
+    # ==========================================================
+    # 4) CSV TOTALMENTE QUEBRADO → REPARAÇÃO MANUAL
+    # ==========================================================
     uploaded_file.seek(0)
-    try:
-        df = pd.read_csv(uploaded_file, sep=";", engine="python")
-        if df.shape[1] > 1:
-            return df
-    except:
-        pass
+    linhas_raw = uploaded_file.read().decode("utf-8", errors="ignore").splitlines()
+
+    # Separar sempre por vírgula na tentativa final
+    linhas = [linha.split(",") for linha in linhas_raw]
+
+    # Descobrir a maior quantidade de colunas existente
+    maior = max(len(l) for l in linhas)
+
+    # Preencher linhas curtas com strings vazias
+    linhas_corrigidas = []
+    for linha in linhas:
+        linha += [""] * (maior - len(linha))  # completar coluna faltante
+        linhas_corrigidas.append(linha)
+
+    # Criar colunas
+    header = linhas_corrigidas[0]
+    corpo = linhas_corrigidas[1:]
+
+    # Se header não parece header, criamos um
+    if not any(char.isalpha() for char in "".join(header)):
+        header = [f"coluna_{i}" for i in range(maior)]
+
+    df = pd.DataFrame(corpo, columns=header)
+
+    return df
+
 
     # ============================
     # REPARAÇÃO DE CSV TOTALMENTE QUEBRADO
