@@ -1,15 +1,53 @@
 import streamlit as st
 import pandas as pd
-import csv
 
 from autoeda import gerar_relatorio_eda
 from training_engine import executar_automl
 from data_cleaning import tratar_faltantes
 
 
-# ============================
-# CONFIGURAÇÃO DO APP
-# ============================
+# ==========================================
+# 📌 FUNÇÃO PARA LER CSV DE FORMA INTELIGENTE
+# ==========================================
+def ler_csv_inteligente(uploaded_file):
+
+    # --- 1) Tentativa normal ---
+    try:
+        df = pd.read_csv(uploaded_file)
+        if df.shape[1] > 1:
+            return df
+    except:
+        pass
+
+    # --- 2) Tentar com vírgula ---
+    uploaded_file.seek(0)
+    try:
+        df = pd.read_csv(uploaded_file, sep=",", engine="python")
+        if df.shape[1] > 1:
+            return df
+    except:
+        pass
+
+    # --- 3) Tentar com ponto e vírgula ---
+    uploaded_file.seek(0)
+    try:
+        df = pd.read_csv(uploaded_file, sep=";", engine="python")
+        if df.shape[1] > 1:
+            return df
+    except:
+        pass
+
+    # --- 4) Reparação manual do CSV completamente quebrado ---
+    uploaded_file.seek(0)
+    linhas = uploaded_file.read().decode("utf-8").splitlines()
+    linhas = [linha.split(",") for linha in linhas]
+    df = pd.DataFrame(linhas[1:], columns=linhas[0])
+    return df
+
+
+# ==========================================
+# 🌎 CONFIGURAÇÃO DO STREAMLIT
+# ==========================================
 st.set_page_config(
     page_title="AutoML + Auto-EDA — Orion IA",
     layout="wide",
@@ -20,68 +58,38 @@ st.title("🤖 Plataforma AutoML + Auto-EDA")
 st.markdown("Sistema automático de análise e modelagem desenvolvido por **Orion IA**.")
 
 
-# ============================
-# UPLOAD DO DATASET
-# ============================
+# ==========================================
+# 📂 UPLOAD DO CSV
+# ==========================================
 uploaded_file = st.file_uploader("📂 Envie seu arquivo .CSV", type=['csv'])
 
 if uploaded_file:
 
-    # =====================================
-    #  DETECÇÃO AUTOMÁTICA DO DELIMITADOR
-    # =====================================
-    try:
-        sample = uploaded_file.read(2048).decode("utf-8", errors="ignore")
-        uploaded_file.seek(0)
+    df = ler_csv_inteligente(uploaded_file)
 
-        try:
-            dialect = csv.Sniffer().sniff(sample)
-            sep = dialect.delimiter
-        except:
-            sep = ","  # fallback padrão
+    # Remover colunas Unnamed
+    df = df.loc[:, ~df.columns.str.contains("Unnamed")]
 
-        df = pd.read_csv(uploaded_file, sep=sep)
-
-        st.success(f"✔ Arquivo carregado com sucesso! (Delimitador detectado: '{sep}')")
-
-    except Exception as e:
-        st.error(f"Erro ao ler o arquivo: {e}")
-        st.stop()
-
-
-    # ============================
-    # EXIBIR PRIMEIRAS LINHAS
-    # ============================
+    st.success("✔ Arquivo carregado com sucesso!")
     st.dataframe(df.head())
 
-
-    # ============================
-    # SELEÇÃO DA VARIÁVEL ALVO
-    # ============================
     st.subheader("🎯 Selecionar coluna alvo (variável que queremos prever)")
     target = st.selectbox("Escolha a coluna alvo:", df.columns)
 
-
-    # ============================
-    # BOTÃO AUTO-EDA
-    # ============================
+    # Botão Auto-EDA
     if st.button("📊 Gerar Relatório Auto-EDA"):
         gerar_relatorio_eda(df)
 
-
-    # ============================
-    # BOTÃO AUTOML
-    # ============================
+    # Botão AutoML
     if st.button("🤖 Executar AutoML"):
 
-        # TRATAMENTO NÍVEL 4
+        st.subheader("🧼 Tratamento Automático de Dados (Nível 4)")
+
         df_tratado, relatorio = tratar_faltantes(df)
 
-        st.subheader("🧼 Tratamento Automático de Dados")
         for item in relatorio:
-            st.write(item)
+            st.write("✔ " + item)
 
-        # EXECUTAR AUTOML COM DADOS TRATADOS
+        st.subheader("🤖 Iniciando AutoML...")
         executar_automl(df_tratado, target)
-
 
