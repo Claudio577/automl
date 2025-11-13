@@ -35,16 +35,66 @@ def limpar_header(df):
 def ler_csv_inteligente(uploaded_file):
     import csv
     
-    # ===============================
-    # 1) TENTAR LEITURA NORMAL
-    # ===============================
+    uploaded_file.seek(0)
+    raw = uploaded_file.read().decode("utf-8", errors="ignore")
+
+    # ============================
+    # 1) SE EXISTIREM ASPAS → usar o leitor real do CSV
+    # ============================
+    if '"' in raw or "'" in raw:
+        uploaded_file.seek(0)
+        try:
+            df = pd.read_csv(uploaded_file, engine="python", quotechar='"', skipinitialspace=True)
+            if df.shape[1] > 1:
+                return df
+        except:
+            pass
+
+    # ============================
+    # 2) TENTAR SNiffer AUTOMÁTICO
+    # ============================
     try:
         uploaded_file.seek(0)
-        df = pd.read_csv(uploaded_file)
+        sample = raw[:2000]
+        dialect = csv.Sniffer().sniff(sample)
+        uploaded_file.seek(0)
+        df = pd.read_csv(uploaded_file, sep=dialect.delimiter)
         if df.shape[1] > 1:
             return df
     except:
         pass
+
+    # ============================
+    # 3) LEITURA MANUAL SEGURA
+    # ============================
+    uploaded_file.seek(0)
+    linhas_raw = raw.splitlines()
+
+    # Dividir usando csv.reader (que entende vírgulas internas!)
+    reader = csv.reader(linhas_raw, delimiter=',', quotechar='"')
+    linhas = list(reader)
+
+    # Tamanho máximo
+    max_cols = max(len(l) for l in linhas)
+
+    # Normalizar
+    linhas_norm = []
+    for linha in linhas:
+        if len(linha) < max_cols:
+            linha += [""] * (max_cols - len(linha))
+        if len(linha) > max_cols:
+            linha = linha[:max_cols]
+        linhas_norm.append(linha)
+
+    # Header
+    header = linhas_norm[0]
+    header = [h.strip().replace('"', "").replace("'", "") for h in header]
+
+    corpo = linhas_norm[1:]
+
+    df = pd.DataFrame(corpo, columns=header)
+    return df
+
 
     # ===============================
     # 2) LER CONTEÚDO BRUTO
