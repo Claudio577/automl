@@ -1,29 +1,63 @@
 import pandas as pd
+import numpy as np
+import re
 
-def tratar_faltantes(df):
-    relatorio = []
+def limpar_celulas(df):
 
-    df_copy = df.copy()
+    df = df.copy()
+    
+    for col in df.columns:
+        if df[col].dtype == "object":
 
-    for col in df_copy.columns:
+            # 1) Remover aspas duplas e simples
+            df[col] = df[col].astype(str).str.replace('"', '', regex=False)
+            df[col] = df[col].astype(str).str.replace("'", '', regex=False)
 
-        # 1) Faltantes em números
-        if df_copy[col].dtype in ["float64", "int64"]:
-            if df_copy[col].isnull().sum() > 0:
-                media = df_copy[col].mean()
-                df_copy[col].fillna(media, inplace=True)
-                relatorio.append(f"Valores faltantes em **{col}** preenchidos com a média ({media:.2f}).")
+            # 2) Remover espaços no começo e fim
+            df[col] = df[col].str.strip()
 
-        # 2) Faltantes em textos
-        else:
-            if df_copy[col].isnull().sum() > 0:
-                df_copy[col].fillna("Desconhecido", inplace=True)
-                relatorio.append(f"Valores faltantes em **{col}** preenchidos com 'Desconhecido'.")
+            # 3) Converter células vazias para NaN
+            df[col] = df[col].replace("", np.nan)
 
-    # 3) Remover colunas completamente vazias
-    colunas_vazias = [col for col in df_copy.columns if df_copy[col].isnull().sum() == len(df_copy)]
-    if colunas_vazias:
-        df_copy.drop(columns=colunas_vazias, inplace=True)
-        relatorio.append(f"Colunas removidas por estarem totalmente vazias: {colunas_vazias}")
+            # 4) Remover caracteres invisíveis
+            df[col] = df[col].apply(lambda x: re.sub(r'\s+', ' ', x) if isinstance(x, str) else x)
 
-    return df_copy, relatorio
+    return df
+
+
+def ajustar_tipos(df):
+
+    df = df.copy()
+
+    for col in df.columns:
+        serie = df[col]
+
+        # 1) Tentar converter para número
+        try:
+            df[col] = pd.to_numeric(serie)
+            continue
+        except:
+            pass
+
+        # 2) Tentar converter para data
+        try:
+            df[col] = pd.to_datetime(serie, errors="raise")
+            continue
+        except:
+            pass
+
+    return df
+
+
+def autofix_csv(df):
+
+    # Entradas sempre como cópia
+    df = df.copy()
+
+    # Etapa 1: limpar conteúdo textual
+    df = limpar_celulas(df)
+
+    # Etapa 2: ajustar tipos automaticamente
+    df = ajustar_tipos(df)
+
+    return df
