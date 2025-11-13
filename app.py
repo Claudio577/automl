@@ -5,6 +5,36 @@ from autoeda import gerar_relatorio_eda
 from training_engine import executar_automl
 from data_cleaning import tratar_faltantes
 
+def limpar_header(df):
+    colunas_corrigidas = []
+
+    for col in df.columns:
+        # 1) Remover aspas simples e duplas
+        col = col.replace('"', '').replace("'", "")
+
+        # 2) Remover espaços no início e fim
+        col = col.strip()
+
+        # 3) Trocar espaços internos por underlines
+        col = col.replace(" ", "_")
+
+        # 4) Remover caracteres invisíveis e especiais
+        col = col.replace("\n", "").replace("\t", "")
+
+        # 5) Garantir que o nome é válido
+        if col == "" or col.lower().startswith("unnamed"):
+            col = None  # será removida depois
+
+        colunas_corrigidas.append(col)
+
+    # Criar lista final ignorando None
+    df.columns = colunas_corrigidas
+
+    # Remover colunas None
+    df = df.loc[:, df.columns.notnull()]
+
+    return df
+
 def ler_csv_inteligente(uploaded_file):
 
     # ==========================================================
