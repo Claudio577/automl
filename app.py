@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import csv
 
 from autoeda import gerar_relatorio_eda
 from data_cleaning import autofix_csv
@@ -8,16 +7,9 @@ from insights_engine import gerar_insights
 
 
 # ==========================================================
-# 🔧 Função: Limpeza e Padronização dos Nomes de Colunas
+# 🔧 Funções Utilitárias
 # ==========================================================
 def limpar_header(df):
-    """
-    Padroniza nomes de colunas para evitar erros:
-    - Remove aspas
-    - Troca espaços por _
-    - Remove quebras de linha
-    - Remove colunas 'Unnamed'
-    """
     colunas_corrigidas = []
 
     for col in df.columns:
@@ -34,29 +26,16 @@ def limpar_header(df):
         )
 
         if col == "" or col.lower().startswith("unnamed"):
-            col = None  # será removida depois
+            col = None
 
         colunas_corrigidas.append(col)
 
     df.columns = colunas_corrigidas
-    df = df.loc[:, df.columns.notnull()]  # remove colunas vazias
-
+    df = df.loc[:, df.columns.notnull()]
     return df
 
 
-# ==========================================================
-# 📌 Função: Leitor Inteligente de CSV
-# ==========================================================
 def ler_csv_inteligente(uploaded_file):
-    """
-    Lê CSVs problemáticos utilizando vários métodos de fallback.
-    Tenta:
-    1) Leitura normal
-    2) Leitura como texto cru
-    3) Reconstrução manual das linhas
-    """
-
-    # 1) Tentativa normal
     try:
         uploaded_file.seek(0)
         df = pd.read_csv(uploaded_file, engine="python")
@@ -65,7 +44,6 @@ def ler_csv_inteligente(uploaded_file):
     except:
         pass
 
-    # 2) Leitura como texto bruto
     uploaded_file.seek(0)
     raw = uploaded_file.read().decode("utf-8", errors="ignore")
     linhas_raw = raw.splitlines()
@@ -73,109 +51,131 @@ def ler_csv_inteligente(uploaded_file):
     if len(linhas_raw) == 0:
         return pd.DataFrame()
 
-    # 3) Forçar split por vírgula
     linhas = [linha.split(",") for linha in linhas_raw]
-
-    # 4) Normalizar colunas (caso algumas linhas tenham mais colunas que outras)
     max_cols = max(len(l) for l in linhas)
     linhas_norm = [l + [""] * (max_cols - len(l)) for l in linhas]
 
-    # Header
     header = [h.replace('"', '').replace("'", "").strip() for h in linhas_norm[0]]
-
-    # Corpo
     corpo = linhas_norm[1:]
 
-    # 5) Construir DataFrame seguro
     try:
         df = pd.DataFrame(corpo, columns=header)
     except:
-        df = pd.DataFrame(corpo, columns=[f"coluna_{i}" for i in range(max_cols)])
+        df = pd.DataFrame(corpo, columns=[f"col_{i}" for i in range(max_cols)])
 
     return df
 
 
 # ==========================================================
-# 🌎 Configuração da Interface Streamlit
+# 🌎 Configuração da Página
 # ==========================================================
 st.set_page_config(
-    page_title="Orion IA — EDA + Insights",
+    page_title="Orion IA — Data Intelligence",
     layout="wide",
     page_icon="🤖"
 )
 
-st.title("🤖 Plataforma Orion IA — Auto-EDA + Insights Inteligentes")
-st.markdown("""
-Bem-vindo à **Orion IA**!  
-Aqui você pode:
-
-- 📂 Fazer upload de um arquivo CSV  
-- 🧹 Limpar e padronizar automaticamente os dados  
-- 📊 Gerar relatórios completos de EDA  
-- 🔍 Gerar insights inteligentes sobre seus dados  
-
-Basta enviar seu arquivo para começar 👇
-""")
+st.title("🤖 Orion IA — Plataforma de Data Intelligence")
 
 
 # ==========================================================
-# 📂 Seção: Upload do Arquivo CSV
+# 📌 SIDEBAR (Menu de Navegação)
 # ==========================================================
-uploaded_file = st.file_uploader("📂 Envie seu arquivo .CSV", type=["csv"])
+st.sidebar.title("📌 Navegação")
+pagina = st.sidebar.selectbox(
+    "Escolha uma área:",
+    [
+        "📂 Upload & Limpeza",
+        "📊 Auto-EDA",
+        "🤖 Insights IA",
+        "📤 Exportar Dados"
+    ]
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("Desenvolvido com ❤️ por Orion IA")
 
 
-if uploaded_file:
+# ==========================================================
+# 📂 UPLOAD & LIMPEZA
+# ==========================================================
+if pagina == "📂 Upload & Limpeza":
+    st.header("📂 Upload & Limpeza de Dados")
 
-    # ---------------------------
-    # 1) Leitura Inteligente
-    # ---------------------------
-    df = ler_csv_inteligente(uploaded_file)
+    uploaded_file = st.file_uploader("Envie seu arquivo CSV", type=["csv"])
 
-    # ---------------------------
-    # 2) Padronizar nomes das colunas
-    # ---------------------------
-    df = limpar_header(df)
+    if uploaded_file:
+        st.info("Tentando leitura inteligente do arquivo...")
 
-    # ---------------------------
-    # 3) Aplicar limpeza avançada (AutoFix)
-    # ---------------------------
-    df_tratado, relatorio = autofix_csv(df)
+        df = ler_csv_inteligente(uploaded_file)
+        df = limpar_header(df)
 
-    # Remover possíveis colunas Unnamed adicionais
-    df_tratado = df_tratado.loc[:, ~df_tratado.columns.str.contains("Unnamed")]
+        df_tratado, relatorio = autofix_csv(df)
+        df_tratado = df_tratado.loc[:, ~df_tratado.columns.str.contains("Unnamed")]
 
-    st.success("✔ Arquivo carregado e tratado com sucesso!")
-    st.write("### 🧹 Visualização inicial dos seus dados:")
-    st.dataframe(df_tratado.head())
+        st.success("✔ Arquivo carregado e tratado com sucesso!")
+        st.dataframe(df_tratado.head())
 
-
-    # ==========================================================
-    # 📊 Botão: Gerar Relatório Auto-EDA
-    # ==========================================================
-    st.markdown("---")
-    st.subheader("📊 Análise Exploratória")
-
-    st.caption("Gere um relatório completo com estatísticas, gráficos, correlações e muito mais.")
-
-    if st.button("📊 Gerar Relatório Auto-EDA"):
-        st.info("⏳ Gerando relatório, aguarde...")
-        gerar_relatorio_eda(df_tratado)
-        st.success("📄 Relatório gerado com sucesso!")
+        # Armazenar no estado da sessão
+        st.session_state["df"] = df_tratado
 
 
-    # ==========================================================
-    # 🔍 Botão: Gerar Insights Inteligentes
-    # ==========================================================
-    st.markdown("---")
-    st.subheader("🔍 Insights Inteligentes Orion IA")
+# ==========================================================
+# 📊 AUTO-EDA
+# ==========================================================
+elif pagina == "📊 Auto-EDA":
+    st.header("📊 Relatório Automático de EDA")
 
-    st.caption("Receba insights automáticos baseados na estrutura e comportamento dos seus dados.")
+    if "df" not in st.session_state:
+        st.warning("⚠ Envie e limpe os dados primeiro na aba 'Upload & Limpeza'.")
+    else:
+        df = st.session_state["df"]
 
-    if st.button("🔍 Gerar Insights"):
-        st.info("🧠 Processando insights, aguarde...")
+        st.write("Clique para gerar o relatório completo de EDA:")
+        if st.button("📊 Gerar Auto-EDA"):
+            st.info("⏳ Gerando relatório, aguarde...")
+            gerar_relatorio_eda(df)
+            st.success("📄 Relatório gerado com sucesso!")
 
-        insights = gerar_insights(df_tratado)
 
-        st.success("✨ Insights gerados com sucesso!")
-        for item in insights:
-            st.write("✔", item)
+# ==========================================================
+# 🤖 INSIGHTS IA
+# ==========================================================
+elif pagina == "🤖 Insights IA":
+    st.header("🤖 Insights Inteligentes com IA")
+
+    if "df" not in st.session_state:
+        st.warning("⚠ Primeiro carregue os dados na aba 'Upload & Limpeza'.")
+    else:
+        df = st.session_state["df"]
+
+        if st.button("🔍 Gerar Insights"):
+            st.info("🧠 Analisando dados, aguarde...")
+            insights = gerar_insights(df)
+
+            st.subheader("✨ Insights encontrados:")
+            for item in insights:
+                st.write("✔", item)
+
+
+# ==========================================================
+# 📤 EXPORTAÇÃO
+# ==========================================================
+elif pagina == "📤 Exportar Dados":
+    st.header("📤 Exportar Dados Tratados")
+
+    if "df" not in st.session_state:
+        st.warning("⚠ Carregue e trate os dados antes de exportar.")
+    else:
+        df = st.session_state["df"]
+
+        csv = df.to_csv(index=False).encode('utf-8')
+
+        st.download_button(
+            "📥 Baixar CSV Tratado",
+            csv,
+            "dados_tratados.csv",
+            "text/csv"
+        )
+
+        st.success("✔ Pronto para baixar!")
