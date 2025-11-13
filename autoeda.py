@@ -1,55 +1,81 @@
-import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+import re
+
+def limpar_celulas(df):
+
+    df = df.copy()
+    
+    for col in df.columns:
+        if df[col].dtype == "object":
+
+            # 1) Remover aspas
+            df[col] = df[col].astype(str).str.replace('"', '', regex=False)
+            df[col] = df[col].astype(str).str.replace("'", '', regex=False)
+
+            # 2) Remover espaços
+            df[col] = df[col].str.strip()
+
+            # 3) Converter strings vazias em NaN
+            df[col] = df[col].replace("", np.nan)
+
+            # 4) Remover duplicação de espaços
+            df[col] = df[col].apply(lambda x: re.sub(r'\s+', ' ', x) if isinstance(x, str) else x)
+
+    return df
 
 
-def gerar_relatorio_eda(df):
+def ajustar_tipos(df):
 
-    st.header("📊 Relatório Automático — Auto-EDA")
-
-    # ---------- 1. Estatísticas ----------
-    st.subheader("📌 Estatísticas Descritivas")
-    st.dataframe(df.describe(include="all").T)
-
-    # ---------- 2. Missing ----------
-    st.subheader("⚠ Valores Faltantes")
-    st.dataframe(df.isnull().sum())
-
-    # ---------- 3. Distribuições ----------
-    st.subheader("📈 Distribuição das Variáveis (Numéricas)")
-    colunas_num = df.select_dtypes(include=['int64', 'float64']).columns
-
-    for coluna in colunas_num:
-        fig, ax = plt.subplots()
-        sns.histplot(df[coluna], kde=True, ax=ax)
-        st.pyplot(fig)
-
-    # ---------- 4. Correlação ----------
-    if len(colunas_num) >= 2:
-        st.subheader("🔗 Matriz de Correlação")
-        fig, ax = plt.subplots(figsize=(8, 6))
-        sns.heatmap(df[colunas_num].corr(), annot=True, cmap="Blues", ax=ax)
-        st.pyplot(fig)
-    else:
-        st.info("Não existem colunas numéricas suficientes para gerar matriz de correlação.")
-
-    # ---------- 5. Insights ----------
-    st.subheader("💡 Insights Automáticos (em Português)")
-    insights = []
+    df = df.copy()
 
     for col in df.columns:
+        serie = df[col]
 
-        if df[col].isnull().sum() > 0:
-            insights.append(f"A coluna **{col}** possui {df[col].isnull().sum()} valores faltantes.")
+        # TENTAR converter números — mas só quando fizer sentido
+        try:
+            # Se mais de 80% são números, converte
+            pct_num = pd.to_numeric(serie, errors="coerce").notna().mean()
 
-        if df[col].dtype in ["int64", "float64"] and df[col].skew() > 1:
-            insights.append(f"A coluna **{col}** é altamente assimétrica (skew > 1).")
+            if pct_num > 0.8:
+                df[col] = pd.to_numeric(serie, errors="coerce")
+                continue
 
-    if len(insights) == 0:
-        st.success("Nenhum problema relevante encontrado nos dados! 🎉")
-    else:
-        for item in insights:
-            st.write("• " + item)
+        except:
+            pass
 
-    st.success("✅ Auto-EDA concluído!")
+        # TENTAR converter datas — mas só quando fizer sentido
+        try:
+            pct_date = pd.to_datetime(serie, errors="coerce").notna().mean()
+
+            if pct_date > 0.8:
+                df[col] = pd.to_datetime(serie, errors="coerce")
+                continue
+
+        except:
+            pass
+
+        # Caso contrário → mantém como texto
+        df[col] = serie
+
+    return df
+
+
+def autofix_csv(df):
+
+    df = df.copy()
+
+    # Etapa 1: limpeza textual
+    df = limpar_celulas(df)
+
+    # Etapa 2: conversões automáticas somente quando seguras
+    df = ajustar_tipos(df)
+
+    # Relatório simples
+    relatorio = [
+        "Colunas limpas (remoção de aspas e espaços)",
+        "Tipos ajustados automaticamente quando seguro",
+        "Valores vazios padronizados como NaN"
+    ]
+
+    return df, relatorio
