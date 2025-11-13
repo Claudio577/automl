@@ -35,7 +35,9 @@ def limpar_header(df):
 def ler_csv_inteligente(uploaded_file):
     import csv
     
-    # 1) Tentar leitura normal
+    # ===============================
+    # 1) TENTAR LEITURA NORMAL
+    # ===============================
     try:
         uploaded_file.seek(0)
         df = pd.read_csv(uploaded_file)
@@ -44,40 +46,64 @@ def ler_csv_inteligente(uploaded_file):
     except:
         pass
 
-    # Ler conteúdo bruto
+    # ===============================
+    # 2) LER CONTEÚDO BRUTO
+    # ===============================
     uploaded_file.seek(0)
     raw = uploaded_file.read().decode("utf-8", errors="ignore")
 
-    # 🔥 2) SE O CSV TIVER APENAS **UMA COLUNA**, FAZEMOS RECONSTRUÇÃO MANUAL
-    linhas = raw.splitlines()
+    # Separar por quebras de linha
+    linhas_raw = raw.splitlines()
 
-    if len(linhas) > 0:
-        primeira_linha = linhas[0]
+    # Se não tem linhas → arquivo inválido
+    if len(linhas_raw) == 0:
+        return pd.DataFrame()
 
-        # Se a primeira linha contém vírgulas, é o header quebrado
-        if "," in primeira_linha:
-            header = primeira_linha.split(",")
+    # ===============================
+    # 3) SPLIT AUTOMÁTICO
+    # ===============================
+    linhas = [linha.split(",") for linha in linhas_raw]
 
-            # Reconstruir linhas seguintes corretamente
-            corpo = []
-            for linha in linhas[1:]:
-                partes = linha.split(",")
-                # completar linhas menores
-                if len(partes) < len(header):
-                    partes += [""] * (len(header) - len(partes))
-                corpo.append(partes)
+    # Tamanho máximo encontrado
+    max_cols = max(len(l) for l in linhas)
 
-            df = pd.DataFrame(corpo, columns=header)
-            return df
+    # ===============================
+    # 4) NORMALIZAR TODAS AS LINHAS
+    # ===============================
+    linhas_normalizadas = []
+    for linha in linhas:
+        if len(linha) < max_cols:
+            linha = linha + [""] * (max_cols - len(linha))
+        elif len(linha) > max_cols:
+            linha = linha[:max_cols]
+        linhas_normalizadas.append(linha)
 
-    # 🔥 3) SE NÃO ENTROU AINDA, FORÇAR SPLIT UNIVERSAL
-    linhas = [linha.split(",") for linha in linhas]
-    maior = max(len(l) for l in linhas)
+    # ===============================
+    # 5) DEFINIR HEADER
+    # ===============================
+    header = linhas_normalizadas[0]
 
-    linhas = [l + [""] * (maior - len(l)) for l in linhas]
+    # Se header está vazio, virar coluna_0, coluna_1...
+    if not any(c.isalpha() for c in "".join(header)):
+        header = [f"coluna_{i}" for i in range(max_cols)]
+    else:
+        # Remover aspas
+        header = [h.replace('"', '').replace("'", "").strip() for h in header]
 
-    df = pd.DataFrame(linhas[1:], columns=linhas[0])
+    # Corpo do CSV
+    corpo = linhas_normalizadas[1:]
+
+    # ===============================
+    # 6) CRIAR DATAFRAME SEGURO
+    # ===============================
+    try:
+        df = pd.DataFrame(corpo, columns=header)
+    except:
+        # fallback absoluto
+        df = pd.DataFrame(linhas_normalizadas[1:], columns=[f"coluna_{i}" for i in range(max_cols)])
+
     return df
+
 
 
 # ==========================================================
