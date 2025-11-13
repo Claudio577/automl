@@ -180,6 +180,8 @@ if uploaded_file:
 
     df = ler_csv_inteligente(uploaded_file)
     df = limpar_header(df)
+    df = autofix_csv(df)
+
 
     # Remover colunas Unnamed
     df = df.loc[:, ~df.columns.str.contains("Unnamed")]
