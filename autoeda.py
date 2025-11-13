@@ -25,11 +25,18 @@ def gerar_relatorio_eda(df):
         st.pyplot(fig)
 
     # ---------- 4. Correlação ----------
-    if len(df.select_dtypes(include=['int64','float64']).columns) >= 2:
-        st.subheader("🔗 Matriz de Correlação")
+    st.subheader("🔗 Matriz de Correlação")
+
+    # Seleciona somente colunas numéricas
+    df_numerico = df.select_dtypes(include=['int64', 'float64'])
+
+    if df_numerico.shape[1] >= 2:
         fig, ax = plt.subplots(figsize=(8,6))
-        sns.heatmap(df.corr(), annot=True, cmap="Blues", ax=ax)
+        sns.heatmap(df_numerico.corr(), annot=True, cmap="Blues", ax=ax)
         st.pyplot(fig)
+    else:
+        st.info("Não existem colunas numéricas suficientes para gerar matriz de correlação.")
+
 
     # ---------- 5. Insights automáticos ----------
     st.subheader("💡 Insights Automáticos")
