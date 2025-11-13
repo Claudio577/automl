@@ -88,6 +88,7 @@ pagina = st.sidebar.selectbox(
         "📂 Upload & Limpeza",
         "📊 Auto-EDA",
         "🤖 Insights IA",
+        "📈 Dashboard Interativo",
         "📤 Exportar Dados"
     ]
 )
@@ -157,6 +158,80 @@ elif pagina == "🤖 Insights IA":
             for item in insights:
                 st.write("✔", item)
 
+# ==========================================================
+# 📈 DASHBOARD INTERATIVO
+# ==========================================================
+elif pagina == "📈 Dashboard Interativo":
+    st.header("📈 Dashboard Interativo Orion IA")
+
+    if "df" not in st.session_state:
+        st.warning("⚠ Primeiro carregue os dados na aba 'Upload & Limpeza'.")
+    else:
+        df = st.session_state["df"]
+
+        st.markdown("### 🔧 Selecione os parâmetros para gerar gráficos dinâmicos")
+
+        # -----------------------------------------------------
+        # Seleção de coluna principal
+        # -----------------------------------------------------
+        coluna = st.selectbox("📌 Escolha uma coluna para visualizar:", df.columns)
+
+        tipo = df[coluna].dtype
+
+        # -----------------------------------------------------
+        # Filtros dinâmicos por tipo de dados
+        # -----------------------------------------------------
+        st.markdown("### 🔍 Filtros")
+        
+        if pd.api.types.is_numeric_dtype(df[coluna]):
+            minimo, maximo = float(df[coluna].min()), float(df[coluna].max())
+            faixa = st.slider("Selecione o intervalo:", minimo, maximo, (minimo, maximo))
+            df_plot = df[df[coluna].between(faixa[0], faixa[1])]
+        else:
+            valores = st.multiselect("Filtrar valores únicos:", df[coluna].unique(), default=df[coluna].unique())
+            df_plot = df[df[coluna].isin(valores)]
+
+        st.markdown("---")
+
+        # -----------------------------------------------------
+        # Gráficos automáticos
+        # -----------------------------------------------------
+        st.subheader("📊 Visualizações")
+
+        import plotly.express as px
+
+        # Numéricas
+        if pd.api.types.is_numeric_dtype(df[coluna]):
+
+            # Histograma
+            fig = px.histogram(df_plot, x=coluna)
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Boxplot
+            fig2 = px.box(df_plot, y=coluna)
+            st.plotly_chart(fig2, use_container_width=True)
+
+        # Categóricas
+        else:
+            contagem = df_plot[coluna].value_counts().reset_index()
+            contagem.columns = [coluna, "Quantidade"]
+
+            fig3 = px.bar(contagem, x=coluna, y="Quantidade")
+            st.plotly_chart(fig3, use_container_width=True)
+
+        # -----------------------------------------------------
+        # Correlação (só numéricas)
+        # -----------------------------------------------------
+        st.markdown("---")
+        st.subheader("📉 Correlação entre Variáveis Numéricas")
+
+        num_df = df_plot.select_dtypes(include=["int64", "float64"])
+
+        if num_df.shape[1] >= 2:
+            fig_corr = px.imshow(num_df.corr(), text_auto=True, color_continuous_scale="RdBu")
+            st.plotly_chart(fig_corr, use_container_width=True)
+        else:
+            st.info("📘 É necessário pelo menos duas colunas numéricas para exibir correlação.")
 
 # ==========================================================
 # 📤 EXPORTAÇÃO
