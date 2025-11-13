@@ -30,6 +30,15 @@ if uploaded_file:
         gerar_relatorio_eda(df)
 
     # Botão AutoML
+    from data_cleaning import tratar_faltantes
+
     if st.button("🤖 Executar AutoML"):
-        executar_automl(df, target)
+        df_tratado, relatorio = tratar_faltantes(df)
+
+        st.subheader("🧼 Tratamento Automático de Dados")
+        for item in relatorio:
+            st.write(item)
+
+      executar_automl(df_tratado, target)
+
 
