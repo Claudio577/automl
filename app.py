@@ -3,6 +3,7 @@ import pandas as pd
 from autoeda import gerar_relatorio_eda
 from automl_engine import executar_automl
 
+
 st.set_page_config(
     page_title="AutoML + Auto-EDA — Orion IA",
     layout="wide",
