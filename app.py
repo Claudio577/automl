@@ -39,6 +39,6 @@ if uploaded_file:
         for item in relatorio:
             st.write(item)
 
-      executar_automl(df_tratado, target)
+        executar_automl(df_tratado, target)
 
 
