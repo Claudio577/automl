@@ -3,6 +3,8 @@ import pandas as pd
 
 from autoeda import gerar_relatorio_eda
 from training_engine import executar_automl
+from data_cleaning import autofix_csv
+
 
 def limpar_header(df):
     colunas_corrigidas = []
