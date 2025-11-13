@@ -33,8 +33,9 @@ def limpar_header(df):
 # 📌 LEITOR INTELIGENTE DE CSV
 # ==========================================================
 def ler_csv_inteligente(uploaded_file):
-
-    # 1) Tentativa normal
+    import csv
+    
+    # 1) Tentar leitura normal
     try:
         uploaded_file.seek(0)
         df = pd.read_csv(uploaded_file)
@@ -43,48 +44,39 @@ def ler_csv_inteligente(uploaded_file):
     except:
         pass
 
-    # 2) Detecção automática de delimitador
+    # Ler conteúdo bruto
     uploaded_file.seek(0)
-    sample = uploaded_file.read(2048).decode("utf-8", errors="ignore")
-    uploaded_file.seek(0)
+    raw = uploaded_file.read().decode("utf-8", errors="ignore")
 
-    try:
-        dialect = csv.Sniffer().sniff(sample)
-        sep = dialect.delimiter
-        df = pd.read_csv(uploaded_file, sep=sep)
+    # 🔥 2) SE O CSV TIVER APENAS **UMA COLUNA**, FAZEMOS RECONSTRUÇÃO MANUAL
+    linhas = raw.splitlines()
 
-        if df.shape[1] > 1:
+    if len(linhas) > 0:
+        primeira_linha = linhas[0]
+
+        # Se a primeira linha contém vírgulas, é o header quebrado
+        if "," in primeira_linha:
+            header = primeira_linha.split(",")
+
+            # Reconstruir linhas seguintes corretamente
+            corpo = []
+            for linha in linhas[1:]:
+                partes = linha.split(",")
+                # completar linhas menores
+                if len(partes) < len(header):
+                    partes += [""] * (len(header) - len(partes))
+                corpo.append(partes)
+
+            df = pd.DataFrame(corpo, columns=header)
             return df
 
-    except:
-        pass
-
-    # 3) Tentar vários separadores
-    for sep in [",", ";", "|", "\t"]:
-        try:
-            uploaded_file.seek(0)
-            df = pd.read_csv(uploaded_file, sep=sep, engine="python")
-            if df.shape[1] > 1:
-                return df
-        except:
-            continue
-
-    # 4) Reparação manual
-    uploaded_file.seek(0)
-    linhas = uploaded_file.read().decode("utf-8").splitlines()
+    # 🔥 3) SE NÃO ENTROU AINDA, FORÇAR SPLIT UNIVERSAL
     linhas = [linha.split(",") for linha in linhas]
-
     maior = max(len(l) for l in linhas)
+
     linhas = [l + [""] * (maior - len(l)) for l in linhas]
 
-    header = linhas[0]
-    corpo = linhas[1:]
-
-    if not any(char.isalpha() for char in "".join(header)):
-        header = [f"coluna_{i}" for i in range(maior)]
-
-    df = pd.DataFrame(corpo, columns=header)
-
+    df = pd.DataFrame(linhas[1:], columns=linhas[0])
     return df
 
 
